@@ -84,7 +84,7 @@ const b = {
         }
     },
     fireWithAmmo() { //triggers after firing when you have ammo
-        b.guns[b.activeGun].fire();
+        if (b.guns[b.activeGun].fire() === false) return;
         if (tech.crouchAmmoCount && m.crouch) {
             if (tech.crouchAmmoCount % 2) {
                 b.guns[b.activeGun].ammo--;
@@ -8024,7 +8024,7 @@ const b = {
         },
         {
             name: "hollow purple",
-            description: `charge a devastating <strong>purple beam</strong><br><strong>max 2</strong> ammo`,
+            description: `charge a devastating <strong>purple beam</strong><br>must <strong>crouch</strong> to fire<br><strong>max 2</strong> ammo`,
             ammo: 0,
             ammoPack: 2,
             defaultAmmoPack: 2,
@@ -8033,10 +8033,17 @@ const b = {
             charge: 0,
             isCharging: false,
             ammoReserve: 0,
+            launchCycle: 0,
+            launchDuration: 60,
             descriptionFunction() {
-                return `charge a <strong>slow</strong>, <strong>deadly</strong> blast<br><strong>max 2</strong> ammo`;
+                return `charge a <strong>slow</strong>, <strong>deadly</strong> blast while <strong>crouching</strong><br><strong>max 2</strong> ammo`;
             },
             fire() {
+                if (!m.crouch) {
+                    simulation.inGameConsole("hollow purple requires crouch to fire");
+                    m.fireCDcycle = m.cycle + 20;
+                    return false;
+                }
                 if (!this.isCharging) {
                     this.isCharging = true;
                     this.charge = 0;
@@ -8046,18 +8053,40 @@ const b = {
                 }
             },
             do() {
-                if (!this.isCharging) return;
-                if (input.fire) {
-                    this.charge = Math.min(120, this.charge + 0.3);
-                    m.fireCDcycle = m.cycle + 999999;
-                } else {
-                    if (this.charge >= 30) {
-                        this.launch();
+                if (this.isCharging) {
+                    if (input.fire) {
+                        this.charge = Math.min(120, this.charge + 0.3);
+                        m.fireCDcycle = m.cycle + 999999;
                     } else {
-                        this.cancel();
+                        if (this.charge >= 30) {
+                            this.launch();
+                        } else {
+                            this.cancel();
+                        }
                     }
                 }
-                if (b.hollowPurpleImage.complete) {
+                if (this.launchCycle && simulation.cycle < this.launchCycle + this.launchDuration) {
+                    const elapsed = simulation.cycle - this.launchCycle;
+                    const alpha = 0.9 * (1 - elapsed / this.launchDuration);
+                    ctx.save();
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = "#5f1a9f";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    if (b.hollowPurpleImage.complete) {
+                        ctx.globalAlpha = alpha * 0.75;
+                        ctx.drawImage(b.hollowPurpleImage, 0, 0, canvas.width, canvas.height);
+                    }
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = "rgba(255,255,255,0.95)";
+                    ctx.font = `bold ${54 + 6 * Math.sin(simulation.cycle * 0.08)}px Arial`;
+                    ctx.textAlign = "center";
+                    ctx.fillText("HOLLOW PURPLE", canvas.width / 2, canvas.height / 2);
+                    ctx.font = "bold 24px Arial";
+                    ctx.fillText("UNLEASH THE PURPLE VOID", canvas.width / 2, canvas.height / 2 + 40);
+                    ctx.restore();
+                }
+                if (this.isCharging && b.hollowPurpleImage.complete) {
                     ctx.save();
                     ctx.globalAlpha = 0.35;
                     const size = 220 + 40 * Math.sin(simulation.cycle * 0.08);
@@ -8065,16 +8094,17 @@ const b = {
                     ctx.rotate(m.angle);
                     ctx.drawImage(b.hollowPurpleImage, -size / 2, -size / 2, size, size);
                     ctx.restore();
+                    ctx.save();
+                    ctx.fillStyle = "rgba(255,255,255,0.95)";
+                    ctx.font = "bold 18px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("(imaginary technique hollow purple.)", m.pos.x, m.pos.y - 130);
+                    ctx.restore();
                 }
-                ctx.save();
-                ctx.fillStyle = "rgba(255,255,255,0.95)";
-                ctx.font = "bold 18px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("(imaginary technique hollow purple.)", m.pos.x, m.pos.y - 130);
-                ctx.restore();
             },
             launch() {
                 this.isCharging = false;
+                this.launchCycle = simulation.cycle;
                 const power = Math.max(1, this.charge);
                 this.charge = 0;
                 this.ammoReserve = 0;

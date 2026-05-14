@@ -10028,7 +10028,7 @@ const tech = {
         allowed() {
             return m.fieldMode === 5 && tech.isPlasmaBall && tech.plasmaRange > 1 && tech.isPlasmaBoost && (build.isExperimentSelection || powerUps.research.count > 0)
         },
-        requires: "plasma torch, plasma ball, dielectric, plasma jet",
+        requires: "plasma ball, dielectric, plasma jet",
         effect() {
             tech.isHollowPurple = true;
         },

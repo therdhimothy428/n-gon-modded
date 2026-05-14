@@ -408,6 +408,22 @@ const m = {
         }
     },
     death() {
+        if (tech.isHollowPurple && !tech.isHollowPurpleTriggered && m.fieldMode === 5 && tech.isPlasmaBall && tech.plasmaRange > 1 && tech.isPlasmaBoost) {
+            tech.isHollowPurpleTriggered = true;
+            tech.removeTech("plasma ball");
+            tech.removeTech("plasma jet");
+            tech.removeTech("dielectric");
+            m.setField("field emitter");
+            b.giveGuns("hollow purple", 1);
+            const hollowPurpleIndex = b.guns.findIndex((g) => g.name === "hollow purple");
+            const inventoryIndex = b.inventory.indexOf(hollowPurpleIndex);
+            if (inventoryIndex !== -1) {
+                b.inventoryGun = inventoryIndex;
+                simulation.makeGunHUD();
+                simulation.switchGun();
+            }
+            simulation.inGameConsole("hollow purple weapon unlocked");
+        }
         if (tech.isImmortal) { //if player has the immortality buff, spawn on the same level with randomized damage
             //remove immortality tech
             // for (let i = 0; i < tech.tech.length; i++) {

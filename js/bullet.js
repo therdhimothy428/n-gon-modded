@@ -5,7 +5,11 @@ const b = {
     activeGun: null, //current gun in use by player
     inventoryGun: 0,
     inventory: [], //list of what guns player has  // 0 starts with basic gun
+    hollowPurpleImage: new Image(),
     setFireMethod() {
+        if (!b.hollowPurpleImage.src) {
+            b.hollowPurpleImage.src = "gojo/gojo.jpeg";
+        }
         if (tech.isFireMoveLock) {
             b.fire = b.fireFloat
             // } else if (tech.isFireNotMove) {
@@ -148,7 +152,12 @@ const b = {
             for (let i = 0; i < b.guns.length; i++) {
                 b.inventory[i] = i;
                 b.guns[i].have = true;
-                if (b.guns[i].ammo !== Infinity) b.guns[i].ammo = Math.ceil(b.guns[i].ammoPack * ammoPacks);
+                if (b.guns[i].ammo !== Infinity) {
+                    b.guns[i].ammo = Math.ceil(b.guns[i].ammoPack * ammoPacks);
+                    if (b.guns[i].maxAmmo && b.guns[i].ammo > b.guns[i].maxAmmo) {
+                        b.guns[i].ammo = b.guns[i].maxAmmo;
+                    }
+                }
             }
             b.inventoryGun = 0;
             b.activeGun = b.inventory[0];
@@ -166,7 +175,12 @@ const b = {
             }
             if (!b.guns[gun].have) b.inventory.push(gun);
             b.guns[gun].have = true;
-            if (b.guns[gun].ammo !== Infinity) b.guns[gun].ammo = Math.ceil(b.guns[gun].ammoPack * ammoPacks);
+            if (b.guns[gun].ammo !== Infinity) {
+                b.guns[gun].ammo = Math.ceil(b.guns[gun].ammoPack * ammoPacks);
+                if (b.guns[gun].maxAmmo && b.guns[gun].ammo > b.guns[gun].maxAmmo) {
+                    b.guns[gun].ammo = b.guns[gun].maxAmmo;
+                }
+            }
             if (b.activeGun === null) {
                 b.inventoryGun = 0;
                 b.activeGun = b.inventory[0] //if no active gun switch to new gun
@@ -8007,6 +8021,115 @@ const b = {
                     }
                 }
             },
+        },
+        {
+            name: "hollow purple",
+            description: `charge a devastating <strong>purple beam</strong><br><strong>max 2</strong> ammo`,
+            ammo: 0,
+            ammoPack: 2,
+            defaultAmmoPack: 2,
+            maxAmmo: 2,
+            have: false,
+            charge: 0,
+            isCharging: false,
+            ammoReserve: 0,
+            descriptionFunction() {
+                return `charge a <strong>slow</strong>, <strong>deadly</strong> blast<br><strong>max 2</strong> ammo`;
+            },
+            fire() {
+                if (!this.isCharging) {
+                    this.isCharging = true;
+                    this.charge = 0;
+                    this.ammoReserve = 1 + ((level.is2xAmmo && (this.name !== "harpoon" || tech.isRailGun)) ? 1 : 0);
+                    this.ammo += this.ammoReserve;
+                    m.fireCDcycle = m.cycle + 999999; // hold charge without firing again
+                }
+            },
+            do() {
+                if (!this.isCharging) return;
+                if (input.fire) {
+                    this.charge = Math.min(120, this.charge + 0.3);
+                    m.fireCDcycle = m.cycle + 999999;
+                } else {
+                    if (this.charge >= 30) {
+                        this.launch();
+                    } else {
+                        this.cancel();
+                    }
+                }
+                if (b.hollowPurpleImage.complete) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.35;
+                    const size = 220 + 40 * Math.sin(simulation.cycle * 0.08);
+                    ctx.translate(m.pos.x, m.pos.y);
+                    ctx.rotate(m.angle);
+                    ctx.drawImage(b.hollowPurpleImage, -size / 2, -size / 2, size, size);
+                    ctx.restore();
+                }
+                ctx.save();
+                ctx.fillStyle = "rgba(255,255,255,0.95)";
+                ctx.font = "bold 18px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("(imaginary technique hollow purple.)", m.pos.x, m.pos.y - 130);
+                ctx.restore();
+            },
+            launch() {
+                this.isCharging = false;
+                const power = Math.max(1, this.charge);
+                this.charge = 0;
+                this.ammoReserve = 0;
+                if (this.ammo > 0) {
+                    this.ammo--;
+                    if (level.is2xAmmo && this.ammo > 0 && (this.name !== "harpoon" || tech.isRailGun)) this.ammo--;
+                    simulation.updateGunHUD();
+                }
+                const me = bullet.length;
+                const dir = {
+                    x: Math.cos(m.angle),
+                    y: Math.sin(m.angle)
+                };
+                bullet[me] = Bodies.rectangle(m.pos.x + 120 * dir.x, m.pos.y + 120 * dir.y, 24, 180, b.fireAttributes(m.angle));
+                bullet[me].dmg = 1200 + 1200 * power;
+                Matter.Body.setDensity(bullet[me], 0.00005);
+                Composite.add(engine.world, bullet[me]);
+                Matter.Body.setVelocity(bullet[me], {
+                    x: (12 + 1.2 * power) * dir.x,
+                    y: (12 + 1.2 * power) * dir.y
+                });
+                bullet[me].endCycle = simulation.cycle + 50 + Math.floor(2 * power);
+                bullet[me].minDmgSpeed = 1;
+                bullet[me].frictionAir = 0.002;
+                bullet[me].beforeDmg = function (who) {
+                    // keep the beam extremely deadly
+                };
+                bullet[me].do = function () {
+                    this.force.y += this.mass * 0.0008;
+                    if (this.speed > 4) {
+                        const facing = {
+                            x: Math.cos(this.angle),
+                            y: Math.sin(this.angle)
+                        };
+                        const mag = 0.002 * this.mass;
+                        if (Vector.cross(Vector.normalise(this.velocity), facing) < 0) {
+                            this.torque += mag;
+                        } else {
+                            this.torque -= mag;
+                        }
+                    }
+                };
+                b.muzzleFlash();
+                simulation.inGameConsole("(imaginary technique hollow purple.)");
+            },
+            cancel() {
+                this.isCharging = false;
+                this.charge = 0;
+                if (this.ammoReserve) {
+                    this.ammo += this.ammoReserve;
+                    this.ammoReserve = 0;
+                    simulation.updateGunHUD();
+                }
+                m.fireCDcycle = m.cycle + 30;
+            }
         },
     ],
 };

@@ -10018,6 +10018,26 @@ const tech = {
         }
     },
     {
+        name: "hollow purple",
+        description: "unlock a<b>special death</b> reward after you have all plasma upgrades",
+        isFieldTech: true,
+        maxCount: 1,
+        count: 0,
+        frequency: 2,
+        frequencyDefault: 2,
+        allowed() {
+            return m.fieldMode === 5 && tech.isPlasmaBall && tech.plasmaRange > 1 && tech.isPlasmaBoost && (build.isExperimentSelection || powerUps.research.count > 0)
+        },
+        requires: "plasma torch, plasma ball, dielectric, plasma jet",
+        effect() {
+            tech.isHollowPurple = true;
+        },
+        remove() {
+            tech.isHollowPurple = false;
+            tech.isHollowPurpleTriggered = false;
+        }
+    },
+    {
         name: "frame-dragging", //"non-inertial frame",
         description: " time dilation <strong>stops time</strong> when not <strong>moving</strong><br><strong>0.6x</strong> <strong class='color-defense'>damage taken</strong>",
         isFieldTech: true,
@@ -13930,6 +13950,8 @@ const tech = {
     isInPilot: null,
     isNoPilotCost: null,
     isPlasmaBoost: null,
+    isHollowPurple: null,
+    isHollowPurpleTriggered: null,
     isControlPlasma: null,
     energyDefense: null,
     isNewWormHoleDamage: null,
